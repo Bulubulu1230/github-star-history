@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GitHub Star History Visualizer</title>
+    <script src="config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/date-fns@3.0.0/index.min.js"></script>
     <style>
@@ -308,9 +309,6 @@
         let starChart = null;
         let growthChart = null;
 
-        // GitHub API token (optional, increases rate limit)
-        const GITHUB_TOKEN = '';
-
         async function analyzeRepo() {
             const repoInput = document.getElementById('repoInput').value.trim();
             const errorMsg = document.getElementById('errorMsg');
@@ -358,9 +356,9 @@
             }
         }
 
-        async function fetchGitHubAPI(url) {
+        async function fetchGitHubAPI(url, useStarHeader = false) {
             const headers = {
-                'Accept': 'application/vnd.github.v3+json'
+                'Accept': useStarHeader ? 'application/vnd.github.v3.star+json' : 'application/vnd.github.v3+json'
             };
             
             if (GITHUB_TOKEN) {
@@ -399,6 +397,7 @@
                 for (let page = 1; page <= pages; page++) {
                     const stargazers = await fetchGitHubAPI(
                         `https://api.github.com/repos/${repo}/stargazers?per_page=${perPage}&page=${page}`,
+                        true
                     );
                     
                     stargazers.forEach((star, index) => {
@@ -416,7 +415,8 @@
 
                 // Sample recent stargazers to estimate growth pattern
                 const recentStargazers = await fetchGitHubAPI(
-                    `https://api.github.com/repos/${repo}/stargazers?per_page=100&page=1`
+                    `https://api.github.com/repos/${repo}/stargazers?per_page=100&page=1`,
+                    true
                 );
 
                 // Create estimated timeline
