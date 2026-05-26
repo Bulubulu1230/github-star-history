@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Star History Visualizer</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@3.0.0/index.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 30px 0;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #a0a0a0;
+            font-size: 1.1rem;
+        }
+
+        .input-section {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        input {
+            flex: 1;
+            padding: 15px 20px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: #e0e0e0;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        input::placeholder {
+            color: #666;
+        }
+
+        button {
+            padding: 15px 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+
+        .stat-label {
+            color: #a0a0a0;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .chart-container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 400px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #a0a0a0;
+        }
+
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .repo-info {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .repo-name {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .repo-description {
+            color: #a0a0a0;
+            line-height: 1.6;
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px 0;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            .input-group {
+                flex-direction: column;
+            }
+
+            .chart-wrapper {
+                height: 300px;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⭐ GitHub Star History</h1>
+            <p class="subtitle">Visualize repository growth and star trends</p>
+        </header>
+
+        <div class="input-section">
+            <div class="input-group">
+                <input 
+                    type="text" 
+                    id="repoInput" 
+                    placeholder="Enter GitHub repository (e.g., facebook/react)"
+                    value=""
+                >
+                <button id="analyzeBtn" onclick="analyzeRepo()">Analyze</button>
+            </div>
+            <div id="errorMsg" class="error hidden"></div>
+        </div>
+
+        <div id="loadingSection" class="loading hidden">
+            <div class="spinner"></div>
+            <p>Fetching star history...</p>
+        </div>
+
+        <div id="resultsSection" class="hidden">
+            <div id="repoInfo" class="repo-info"></div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Total Stars</div>
+                    <div class="stat-value" id="totalStars">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Growth Rate</div>
+                    <div class="stat-value" id="growthRate">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Avg Stars/Day</div>
+                    <div class="stat-value" id="avgStarsPerDay">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Days Tracked</div>
+                    <div class="stat-value" id="daysTracked">-</div>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h2 style="margin-bottom: 20px; color: #e0e0e0;">Star History Over Time</h2>
+                <div class="chart-wrapper">
+                    <canvas id="starChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h2 style="margin-bottom: 20px; color: #e0e0e0;">Daily Star Growth Rate</h2>
+                <div class="chart-wrapper">
+                    <canvas id="growthChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>Built with Chart.js • Data from GitHub API</p>
+        </footer>
+    </div>
+
+    <script>
+        let starChart = null;
+        let growthChart = null;
+
+        // GitHub API token (optional, increases rate limit)
+        const GITHUB_TOKEN = '';
+
+        async function analyzeRepo() {
+            const repoInput = document.getElementById('repoInput').value.trim();
+            const errorMsg = document.getElementById('errorMsg');
+            const loadingSection = document.getElementById('loadingSection');
+            const resultsSection = document.getElementById('resultsSection');
+            const analyzeBtn = document.getElementById('analyzeBtn');
+
+            // Validate input
+            if (!repoInput) {
+                showError('Please enter a repository name');
+                return;
+            }
+
+            const repoMatch = repoInput.match(/(?:https?:\/\/github\.com\/)?([^\/]+\/[^\/]+)/);
+            if (!repoMatch) {
+                showError('Invalid repository format. Use: owner/repo or GitHub URL');
+                return;
+            }
+
+            const repo = repoMatch[1].replace(/\.git$/, '');
+
+            // Reset UI
+            errorMsg.classList.add('hidden');
+            resultsSection.classList.add('hidden');
+            loadingSection.classList.remove('hidden');
+            analyzeBtn.disabled = true;
+
+            try {
+                // Fetch repository info
+                const repoData = await fetchGitHubAPI(`https://api.github.com/repos/${repo}`);
+                
+                // Fetch star history
+                const starHistory = await fetchStarHistory(repo, repoData.stargazers_count);
+
+                // Display results
+                displayResults(repoData, starHistory);
+                
+                loadingSection.classList.add('hidden');
+                resultsSection.classList.remove('hidden');
+            } catch (error) {
+                loadingSection.classList.add('hidden');
+                showError(error.message);
+            } finally {
+                analyzeBtn.disabled = false;
+            }
+        }
+
+        async function fetchGitHubAPI(url) {
+            const headers = {
+                'Accept': 'application/vnd.github.v3+json'
+            };
+            
+            if (GITHUB_TOKEN) {
+                headers['Authorization'] = `token ${GITHUB_TOKEN}`;
+            }
+
+            const response = await fetch(url, { headers });
+
+            if (!response.ok) {
+                if (response.status === 404) {
+                    throw new Error('Repository not found');
+                } else if (response.status === 403) {
+                    throw new Error('API rate limit exceeded. Please try again later.');
+                } else {
+                    throw new Error(`GitHub API error: ${response.status}`);
+                }
+            }
+
+            return await response.json();
+        }
+
+        async function fetchStarHistory(repo, totalStars) {
+            // For repositories with many stars, we'll sample the data
+            const maxSamples = 100;
+            const starHistory = [];
+
+            // Get repository creation date
+            const repoData = await fetchGitHubAPI(`https://api.github.com/repos/${repo}`);
+            const createdAt = new Date(repoData.created_at);
+            
+            // If repo has few stars, get all stargazers
+            if (totalStars <= 400) {
+                const perPage = 100;
+                const pages = Math.ceil(totalStars / perPage);
+                
+                for (let page = 1; page <= pages; page++) {
+                    const stargazers = await fetchGitHubAPI(
+                        `https://api.github.com/repos/${repo}/stargazers?per_page=${perPage}&page=${page}`,
+                    );
+                    
+                    stargazers.forEach((star, index) => {
+                        starHistory.push({
+                            date: new Date(star.starred_at),
+                            stars: (page - 1) * perPage + index + 1
+                        });
+                    });
+                }
+            } else {
+                // For large repos, estimate star history
+                const now = new Date();
+                const daysSinceCreation = Math.floor((now - createdAt) / (1000 * 60 * 60 * 24));
+                const samplingInterval = Math.max(1, Math.floor(daysSinceCreation / maxSamples));
+
+                // Sample recent stargazers to estimate growth pattern
+                const recentStargazers = await fetchGitHubAPI(
+                    `https://api.github.com/repos/${repo}/stargazers?per_page=100&page=1`
+                );
+
+                // Create estimated timeline
+                for (let i = 0; i <= maxSamples; i++) {
+                    const daysAgo = daysSinceCreation - (i * samplingInterval);
+                    const date = new Date(createdAt.getTime() + daysAgo * 24 * 60 * 60 * 1000);
+                    const estimatedStars = Math.floor((totalStars / daysSinceCreation) * daysAgo);
+                    
+                    starHistory.push({
+                        date: date,
+                        stars: Math.max(0, estimatedStars)
+                    });
+                }
+
+                // Add current star count
+                starHistory.push({
+                    date: now,
+                    stars: totalStars
+                });
+            }
+
+            return starHistory.sort((a, b) => a.date - b.date);
+        }
+
+        function displayResults(repoData, starHistory) {
+            // Display repo info
+            const repoInfo = document.getElementById('repoInfo');
+            repoInfo.innerHTML = `
+                <div class="repo-name">
+                    <a href="${repoData.html_url}" target="_blank" style="color: #667eea; text-decoration: none;">
+                        ${repoData.full_name}
+                    </a>
+                </div>
+                <div class="repo-description">${repoData.description || 'No description available'}</div>
+            `;
+
+            // Calculate statistics
+            const totalStars = repoData.stargazers_count;
+            const firstDate = starHistory[0].date;
+            const lastDate = starHistory[starHistory.length - 1].date;
+            const daysTracked = Math.floor((lastDate - firstDate) / (1000 * 60 * 60 * 24));
+            const avgStarsPerDay = daysTracked > 0 ? (totalStars / daysTracked).toFixed(1) : 0;
+
+            // Calculate growth rate (last 30 days vs previous 30 days)
+            const thirtyDaysAgo = new Date(lastDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+            const sixtyDaysAgo = new Date(lastDate.getTime() - 60 * 24 * 60 * 60 * 1000);
+            
+            const starsLast30Days = starHistory.filter(s => s.date >= thirtyDaysAgo).length;
+            const starsPrevious30Days = starHistory.filter(s => s.date >= sixtyDaysAgo && s.date < thirtyDaysAgo).length;
+            
+            let growthRate = 0;
+            if (starsPrevious30Days > 0) {
+                growthRate = (((starsLast30Days - starsPrevious30Days) / starsPrevious30Days) * 100).toFixed(1);
+            }
+
+            // Update stats
+            document.getElementById('totalStars').textContent = totalStars.toLocaleString();
+            document.getElementById('growthRate').textContent = `${growthRate > 0 ? '+' : ''}${growthRate}%`;
+            document.getElementById('avgStarsPerDay').textContent = avgStarsPerDay;
+            document.getElementById('daysTracked').textContent = daysTracked;
+
+            // Create charts
+            createStarChart(starHistory);
+            createGrowthChart(starHistory);
+        }
+
+        function createStarChart(starHistory) {
+            const ctx = document.getElementById('starChart').getContext('2d');
+
+            if (starChart) {
+                starChart.destroy();
+            }
+
+            const labels = starHistory.map(s => s.date.toLocaleDateString());
+            const data = starHistory.map(s => s.stars);
+
+            starChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Total Stars',
+                        data: data,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        pointHoverRadius: 6,
+                        pointHoverBackgroundColor: '#667eea',
+                        pointHoverBorderColor: '#fff',
+                        pointHoverBorderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            borderColor: '#667eea',
+                            borderWidth: 1,
+                            padding: 12,
+                            displayColors: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#a0a0a0',
+                                maxTicksLimit: 8
+                            }
+                        },
+                        y: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#a0a0a0',
+                                callback: function(value) {
+                                    return value.toLocaleString();
+                                }
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
+                    }
+                }
+            });
+        }
+
+        function createGrowthChart(starHistory) {
+            const ctx = document.getElementById('growthChart').getContext('2d');
+
+            if (growthChart) {
+                growthChart.destroy();
+            }
+
+            // Calculate daily growth
+            const growthData = [];
+            for (let i = 1; i < starHistory.length; i++) {
+                const daysDiff = (starHistory[i].date - starHistory[i-1].date) / (1000 * 60 * 60 * 24);
+                const starsDiff = starHistory[i].stars - starHistory[i-1].stars;
+                const dailyGrowth = daysDiff > 0 ? starsDiff / daysDiff : 0;
+                
+                growthData.push({
+                    date: starHistory[i].date,
+                    growth: dailyGrowth
+                });
+            }
+
+            const labels = growthData.map(g => g.date.toLocaleDateString());
+            const data = growthData.map(g => g.growth);
+
+            growthChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Stars per Day',
+                        data: data,
+                        backgroundColor: 'rgba(118, 75, 162, 0.6)',
+                        borderColor: '#764ba2',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            borderColor: '#764ba2',
+                            borderWidth: 1,
+                            padding: 12,
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.parsed.y.toFixed(2)} stars/day`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#a0a0a0',
+                                maxTicksLimit: 8
+                            }
+                        },
+                        y: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#a0a0a0',
+                                callback: function(value) {
+                                    return value.toFixed(1);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function showError(message) {
+            const errorMsg = document.getElementById('errorMsg');
+            errorMsg.textContent = message;
+            errorMsg.classList.remove('hidden');
+        }
+
+        // Allow Enter key to trigger analysis
+        document.getElementById('repoInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                analyzeRepo();
+            }
+        });
+    </script>
+</body>
+</html>
